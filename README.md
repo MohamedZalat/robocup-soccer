@@ -13,7 +13,7 @@ The neural network layers are defined by the configuration 9-500-500-5.
 #### LSTM (Long Short-Term Memory) Network
 
 The LSTM neural network consists of a single LSTM cell that has a hidden dimension of 128.
-The ReLU activation function is applied to the output of the \gls{lstm} cell, followed by a fully connected layer that outputs the final action it selected (i.e. a fully connected layer with the configuration 128-5).
+The ReLU activation function is applied to the output of the LSTM cell, followed by a fully connected layer that outputs the final action it selected (i.e. a fully connected layer with the configuration 128-5).
 Batch normalization is applied on the input vector as well as between the ReLU activation function and the fully connected layer.
 
 ## Hyper-parameters
