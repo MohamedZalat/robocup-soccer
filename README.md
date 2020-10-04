@@ -1,109 +1,51 @@
-# Robocup
-RoboCup 2D Soccer Simulation League, written in Python, for my A.I. class project. 
+# Robocup Metrics Experiments
 
-In case you're wondering, this won the class tournament, but its positioning is shitty tho.
+## Neural Networks
 
+The following neural networks have architectures that were selected empirically with the purpose of validating our proposed metrics.
 
-## Installation
+#### MLP (Multi-Layer Perceptron) Network
 
-Clone this repo:
-```
-git clone <git-url>
-```
+This neural network consists of 2 fully connected hidden layers of size 500 each with the ReLU activation function applied after each hidden layer.
+We also apply batch normalization on the input vector and after each hidden layer to improve the convergence rate of the network's parameters.
+The neural network layers are defined by the configuration 9-500-500-5.
 
-Assuming you have `rcsoccersim` on your machine, run it first. Then run the AI agent optionally with a teamname prepended.
+#### LSTM (Long Short-Term Memory) Network
 
-```
-rcsoccersim
-[TEAM=<NAME>] python main.py
-```
+The LSTM neural network consists of a single LSTM cell that has a hidden dimension of 128.
+The ReLU activation function is applied to the output of the \gls{lstm} cell, followed by a fully connected layer that outputs the final action it selected (i.e. a fully connected layer with the configuration 128-5).
+Batch normalization is applied on the input vector as well as between the ReLU activation function and the fully connected layer.
 
+## Hyper-parameters
 
-## Development
+The same hyper-parameters and training method are used for both Neural Networks. The hyper-parameters were selected empirically:
 
-`aigent/aima_python/` is just for reference - that's the sample code from Norvig's *Artificial Intelligence, A Modern Approach*.
+#### DAgger (Data Aggregation) Hyper-parameters
+- β = 0
+- t-step = 10
+- Epochs at the end of each t-step trajectory = 10
 
-`aigent/soccerpy/` contains the source for the agent and client. This is sourced from [jsontbradshaw/soccerpy](https://github.com/jasontbradshaw/soccerpy) under the MIT license. I've modified it to add several convenient methods, but minimal modification within this folder is needed.
+#### Neural Network Hyper-parameters
+Adaptive learning rate optimization (Adam):
+- Learning rate = 0.001
+- Epochs after termination of DAgger = 200
 
-`aigent/agent_*.py` is the real deal - it lets you configure different agent personalities and stategies. For example you can have striker, defender, goalie agents, which are `agent_1`, `agent_2` and `agent_3` respectively.
+Loss: cross-entropy loss
 
-Once you have the agents, you can import a distribution of them, assign them player numbers and configure their starting positions in `main.py`. This is also the file you run to play.
+## Dataset
 
+All dataset sizes were selected qualitatively to make the MLP network outperform the LSTM network in imitating the reactive expert, and to make the LSTM network outperform the MLP network in imitating the state-based expert.
 
-## Report
+#### MLP
+- 56,041 time steps for the reactive (krislet) expert.
+- 19,750 time steps for the state-based expert.
 
-Read the paper at [report/paper.pdf](./report/paper.pdf)
+#### LSTM
+- 59,658 time steps for the reactive (krislet) expert.
+- 26,153 time steps for the state-based expert.
 
-## Notes
-Below are my notes containing strategies I used, and ideas I had no time to implement.
+## Training Method (DAgger)
 
-
-#### kickoff
-act if it's your team's ball.
-`is_before_kick_off() && is_kick_off_us()`
-
-#### whistle
-Throw in, free kick, penalty, goalkick
-BEFORE_KICK_OFF = "before_kick_off"
-PLAY_ON = "play_on"
-TIME_OVER = "time_over"
-KICK_OFF_L = "kick_off_l"
-KICK_OFF_R = "kick_off_r"
-KICK_IN_L = "kick_in_l"
-KICK_IN_R = "kick_in_r"
-FREE_KICK_L = "free_kick_l"
-FREE_KICK_R = "free_kick_r"
-CORNER_KICK_L = "corner_kick_l"
-CORNER_KICK_R = "corner_kick_r"
-GOAL_KICK_L = "goal_kick_l"
-GOAL_KICK_R = "goal_kick_r"
-DROP_BALL = "drop_ball"
-OFFSIDE_L = "offside_l"
-OFFSIDE_R = "offside_r"
-
-#### offense
-When your team has the ball.
-- advance: if not close enuf
-- shoot: if close enuf and clear
-
-#### defense
-When ball is in your half of the field, and enemy's possession
-- just swarm them for now
-
-#### player maneuver
-block, evades
-
-
-####  Neural Net
-on top of predefined conditional actions and heuristics
-
-Fields, per robot
-want: input = conditions, output = actions
-
-env input:
-- distance to goal
-- distance to ball
-- distance to enemy
-- distance to teammate
-
-output actions:
-- shoot to goal (scoring is the whole point of the game)
-- pass to teammate
-- run to position (ball, teammate, enemy, side)
-
-unsupervised pretraining on autoencoder:
-- output = input, i.e. input env conds
-
-supervised training:
-- set {env, actions} collected in the last round of game, only if result is positive
-
-
-First define ur env vars n simple heuristics
-
-or skip the pretraining by using a random net first, plug in net n repeat
-
-run a game, each think step collect data of outcome n prev actions, inject to db.
-game ends, train autoencoder w/ all actions, then train real
-plug in the net, repeat above for evolution
-
-where to incorp action success: reward n cost? in selection of data, by evolution n natural selection
+At every step of a run, the agent selects an action (using the neural network) based on the current perception of the environment and performs the action they selected.
+Next, it queries the expert for the action it would have taken at that step of the run and add the environment action pair to the training set of the agent.
+The agent runs 10 epochs of training on the new dataset at the end of each 10-step trajectory using the cross-entropy loss criterion and adaptive learning rate optimization (Adam).
