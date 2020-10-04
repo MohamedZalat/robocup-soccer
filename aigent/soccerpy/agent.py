@@ -4,12 +4,13 @@ import threading
 import time
 import random
 
-import sock
-import sp_exceptions
-import handler
-from world_model import WorldModel
+from . import sock
+from . import sp_exceptions
+from . import handler
+from .world_model import WorldModel
 
 class Agent:
+
     def __init__(self):
         # whether we're connected to a server yet or not
         self.__connected = False
@@ -26,10 +27,10 @@ class Agent:
 
         # parse thread and control variable
         self.__parsing = False
-        self.__msg_thread = None
+        self._msg_thread = None
 
-        self.__thinking = False # think thread and control variable
-        self.__think_thread = None
+        self.__thinking = False  # think thread and control variable
+        self._think_thread = None
 
         # whether we should run the think method
         self.__should_think_on_data = False
@@ -41,6 +42,12 @@ class Agent:
         self.enemy_goal_pos = None
         self.own_goal_pos = None
 
+        # An object for the decorator to insert the env and act parameters in,
+        # for agents that operate using a neural network.
+        class Cls(object):
+            pass
+
+        self.ctx = Cls()
 
     def connect(self, host, port, teamname, version=11):
         """
@@ -68,14 +75,7 @@ class Agent:
         self.msg_handler = handler.MessageHandler(self.wm)
 
         # set up our threaded message receiving system
-        self.__parsing = True # tell thread that we're currently running
-        self.__msg_thread = threading.Thread(target=self.__message_loop,
-                name="message_loop")
-        self.__msg_thread.daemon = True # dies when parent thread dies
-
-        # start processing received messages. this will catch the initial server
-        # response and all subsequent communication.
-        self.__msg_thread.start()
+        self.__parsing = True  # tell thread that we're currently running
 
         # send the init message and allow the message handler to handle further
         # responses.
@@ -83,17 +83,26 @@ class Agent:
         init_msg = "(init %s (version %d))"
         self.__sock.send(init_msg % (teamname, version))
 
+        self._msg_thread = threading.Thread(target=self.__message_loop,
+                                            name="message_loop")
+        self._msg_thread.daemon = True  # dies when parent thread dies
+
+        # start processing received messages. this will catch the initial server
+        # response and all subsequent communication.
+        self._msg_thread.start()
+
         # wait until the socket receives a response from the server and gets its
         # assigned port.
         while self.__sock.address == init_address:
+            # print('pepeg: waiting for socket to assign me a port')
             time.sleep(0.0001)
 
         # create our thinking thread.  this will perform the actions necessary
         # to play a game of robo-soccer.
         self.__thinking = False
-        self.__think_thread = threading.Thread(target=self.__think_loop,
-                name="think_loop")
-        self.__think_thread.daemon = True
+        self._think_thread = threading.Thread(target=self.__think_loop,
+                                              name="think_loop")
+        self._think_thread.daemon = True
 
         # set connected state.  done last to prevent state inconsistency if
         # something goes wrong beforehand.
@@ -122,7 +131,7 @@ class Agent:
         # tell the thread that it should be running, then start it
         self.__thinking = True
         self.__should_think_on_data = True
-        self.__think_thread.start()
+        self._think_thread.start()
 
     def disconnect(self):
         """
@@ -153,11 +162,11 @@ class Agent:
         # tell our threads to join, but only wait breifly for them to do so.
         # don't join them if they haven't been started (this can happen if
         # disconnect is called very quickly after connect).
-        if self.__msg_thread.is_alive():
-            self.__msg_thread.join(0.01)
+        if self._msg_thread.is_alive():
+            self._msg_thread.join(0.01)
 
-        if self.__think_thread.is_alive():
-            self.__think_thread.join(0.01)
+        if self._think_thread.is_alive():
+            self._think_thread.join(0.01)
 
         # reset all standard variables in this object.  self.__connected gets
         # reset here, along with all other non-user defined internal variables.
@@ -181,8 +190,10 @@ class Agent:
 
             # we send commands all at once every cycle, ie. whenever a
             # 'sense_body' command is received
-            if msg_type == handler.ActionHandler.CommandType.SENSE_BODY:
-                self.__send_commands = True
+
+            # THIS IS EDITED
+            # if msg_type == handler.ActionHandler.CommandType.SENSE_BODY:
+            self.__send_commands = True
 
             # flag new data as needing the think loop's attention
             self.__should_think_on_data = True
@@ -197,10 +208,11 @@ class Agent:
         """
 
         while self.__thinking:
+            # COMMENTED THIS OUT FOR SERIALIZATION.
             # tell the ActionHandler to send its enqueued messages if it is time
-            if self.__send_commands:
-                self.__send_commands = False
-                self.wm.ah.send_commands()
+            # if self.__send_commands:
+            #     self.__send_commands = False
+            #     self.wm.ah.send_commands()
 
             # only think if new data has arrived
             if self.__should_think_on_data:
@@ -208,13 +220,23 @@ class Agent:
                 # condition, since the only change would be to make it True
                 # before changing it to False again, and we're already going to
                 # process data, so it doesn't make any difference.
+
                 self.__should_think_on_data = False
+                # NEXT LINE IS AN EDIT.
+                # self.__should_think_on_data = True
 
                 # performs the actions necessary for the agent to play soccer
                 self.think()
-            else:
-                # prevent from burning up all the cpu time while waiting for data
-                time.sleep(0.0001)
+            # else:
+            #     # prevent from burning up all the cpu time while waiting for data
+            #     time.sleep(0.0001)
+
+            time.sleep(0.200)
+
+    def _send_commands(self):
+        # Needs to be called manually after every action queued in order to send the
+        # action using the socket.
+        self.wm.ah.send_commands()
 
     def setup_environment(self):
         """
@@ -232,7 +254,7 @@ class Agent:
         """
 
         # DEBUG:  tells us if a thread dies
-        if not self.__think_thread.is_alive() or not self.__msg_thread.is_alive():
+        if not self._think_thread.is_alive() or not self._msg_thread.is_alive():
             raise Exception("A thread died.")
 
         # take places on the field by uniform number
@@ -379,4 +401,3 @@ class Agent:
 #         print
 #         print "Exiting."
 #         sys.exit()
-

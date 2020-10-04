@@ -11,14 +11,13 @@ import os
 # import agent types (positions)
 from aigent.soccerpy.agent import Agent as A0
 # strikers
-from aigent.agent_mlp import Agent as AgentMlp
-from aigent.agent_lstm import Agent as AgentLstm
+from aigent.agent_mlp import Agent as A1
 # defenders
 from aigent.krislet_supervisor import KrisletSupervisor
 from aigent.statebased_supervisor import StateBasedSupervisor
 
 # set team
-TEAM_NAME = 'Imitator'
+TEAM_NAME = 'Expert'
 NUM_PLAYERS = 1
 
 # return type of agent: midfield, striker etc.
@@ -32,11 +31,10 @@ def spawn_agent(team_name, position):
     Used to run an agent in a seperate physical process.
     """
     # return type of agent by position, construct
-    a = agent_type(position)(AgentLstm(load_model=True, model_path='models/statebased_lstm.pt',
-                                       load_dataset=True, dataset_dir='statebased_data',
-                                       passthrough=False, clone=True, save_traj=True,
-                                       cloning_epochs=200, report_name='statebased_lstm'),
-                             model_name='statebased_agent_lstm')
+    a = agent_type(position)(A1(load_dataset=False, model_path=None,
+                                passthrough=True, clone=False,
+                                save_traj=False),
+                             model_name='statebased_expert')
     a.connect("localhost", 6000, team_name)
     a.play()
 
