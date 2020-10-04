@@ -27,7 +27,7 @@ The same hyper-parameters and training method are used for both Neural Networks.
 
 #### Neural Network Hyper-parameters
 Adaptive learning rate optimization (Adam):
-- Learning rate = 0.001
+- Learning rate = 0.0001
 - Epochs after termination of DAgger = 200
 
 Loss: cross-entropy loss
